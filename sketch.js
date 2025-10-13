@@ -12,7 +12,6 @@ const NUM_COLUMNS = 5;
 const DOT_RADIUS = 8; 
 const X_MARGIN_LEFT = 50; 
 const X_BUTTON_AREA_WIDTH = 180; // Larghezza riservata ai bottoni (150px width + padding)
-const X_MARGIN_RIGHT = X_BUTTON_AREA_WIDTH; // Il margine destro è l'area dei bottoni + un piccolo buffer (lo gestiamo in drawAxes)
 const Y_MARGIN = 50;
 const DATA_MIN = -100;
 const DATA_MAX = 100;
@@ -21,8 +20,8 @@ const DATA_MAX = 100;
 const COLUMN_COLORS_VIVID = [
     [255, 0, 0],    // Rosso per Colonna 0
     [0, 255, 0],    // Verde per Colonna 1
-    [0, 150, 255],  // Blu per Colonna 2
-    [255, 200, 0],  // Arancio per Colonna 3
+    [0, 60, 255],  // Blu per Colonna 2
+    [255, 200, 0],  // Arancione per Colonna 3
     [255, 0, 255]   // Magenta per Colonna 4
 ];
 const COLOR_FADE_AMOUNT = 0.10; // Opacità ridotta per i pallini deselezionati
@@ -32,23 +31,20 @@ let hoveredValue = null;
 let hoveredX = 0;
 let hoveredY = 0;
 
+// Variabili per il calcolo delle Statistiche Visive
+let modeValues = []; 
+let medianValue = null; 
+
 // --- Funzioni per il Caricamento e la Preparazione dei Dati ---
 
 function preload() {
-    table = loadTable('dataset.csv', 'csv', 'header', 
-        () => console.log('Dataset caricato con successo.'), 
-        () => console.error('Errore nel caricamento del dataset.'));
-    
-    rulesText = loadStrings('rules.txt',
-        () => console.log('Regole caricate con successo.'), 
-        () => console.error('Errore nel caricamento delle regole.'));
+    table = loadTable('dataset.csv', 'csv', 'header');
+    rulesText = loadStrings('rules.txt',);
 }
 
 function setup() {
     // La tela deve occupare tutta la finestra
     createCanvas(windowWidth, windowHeight);
-    
-    noLoop(); 
     
     for (let i = 0; i < NUM_COLUMNS; i++) {
         dotColors[i] = color(COLUMN_COLORS_VIVID[i]);
@@ -66,12 +62,11 @@ function setup() {
     ellipseMode(CENTER);
     textAlign(CENTER, CENTER);
     
-    redraw(); 
+    updateStats(selectedCol);
 }
 
 function windowResized() {
     resizeCanvas(windowWidth, windowHeight);
-    redraw(); 
 }
 
 function parseRules(rulesArray) {
@@ -157,15 +152,13 @@ function draw() {
     }
 
     drawAxes();
+    drawVisualStatistics(); 
     drawHistogram();
-    drawTooltip();
+    drawTooltip(); 
 }
 
 function drawAxes() {
-    // La larghezza del grafico è data dalla larghezza totale meno i margini laterali fissi
     const plotWidth = width - X_MARGIN_LEFT - X_BUTTON_AREA_WIDTH; 
-
-    // L'estremo destro del grafico
     const plotRightEdge = width - X_BUTTON_AREA_WIDTH; 
 
     // Asse Y (Valore)
@@ -204,9 +197,101 @@ function drawAxes() {
     text("Riga Verificata", X_MARGIN_LEFT + plotWidth / 2, height - Y_MARGIN + 25);
 }
 
+function drawVisualStatistics() {
+    if (selectedCol === -1 || verifiedData.length === 0) return;
+
+    const colValues = verifiedData.map(row => row[selectedCol]);
+    const plotWidth = width - X_MARGIN_LEFT - X_BUTTON_AREA_WIDTH; 
+    const plotRightEdge = width - X_BUTTON_AREA_WIDTH; 
+    
+    const mean = calculateMean(colValues);
+    const stdDev = calculateStdDev(colValues);
+
+    const yMean = map(mean, DATA_MIN, DATA_MAX, height - Y_MARGIN, Y_MARGIN);
+    
+    // Impostazioni per Etichette
+    fill(255);
+    noStroke();
+    textSize(14);
+    textAlign(LEFT, CENTER);
+
+    // 1. Linea della Media (Colonna 0 e Colonna 4)
+    if (selectedCol === 0 || selectedCol === 4) {
+        stroke(255); // Linea bianca
+        strokeWeight(2);
+        line(X_MARGIN_LEFT, yMean, plotRightEdge, yMean);
+        
+        // Etichetta della media
+        text(`Media: ${nf(mean, 0, 2)}`, X_MARGIN_LEFT + 5, yMean - 10);
+    }
+
+    // 2. Zona della Deviazione Standard (Colonna 1 e Colonna 4)
+    if (selectedCol === 1 || selectedCol === 4) {
+        // Calcola i limiti dell'area (Media ± 1 Deviazione Standard)
+        const meanPlusStd = mean + stdDev;
+        const meanMinusStd = mean - stdDev;
+
+        const yTop = map(meanPlusStd, DATA_MIN, DATA_MAX, height - Y_MARGIN, Y_MARGIN);
+        const yBottom = map(meanMinusStd, DATA_MIN, DATA_MAX, height - Y_MARGIN, Y_MARGIN);
+        
+        // Disegna l'area
+        noStroke();
+        fill(255, 255, 255, 40); // Bianco semi-trasparente (sfumato)
+        rectMode(CORNER);
+        rect(X_MARGIN_LEFT, yTop, plotWidth, yBottom - yTop);
+        
+        // Disegna una linea sottile per la deviazione standard per chiarezza
+        stroke(255, 100); 
+        strokeWeight(1);
+        line(X_MARGIN_LEFT, yTop, plotRightEdge, yTop);
+        line(X_MARGIN_LEFT, yBottom, plotRightEdge, yBottom);
+
+        // ETICHETTE DEVIAZIONE STANDARD
+        fill(255);
+        text(`+1σ: ${nf(meanPlusStd, 0, 2)}`, X_MARGIN_LEFT + 5, yTop - 10);
+        text(`-1σ: ${nf(meanMinusStd, 0, 2)}`, X_MARGIN_LEFT + 5, yBottom + 10);
+    }
+
+    // 3. Linea Mediana (Colonna 3)
+    if (selectedCol === 3 && medianValue !== null && medianValue !== "N/A") {
+        const yMedian = map(medianValue, DATA_MIN, DATA_MAX, height - Y_MARGIN, Y_MARGIN);
+        
+        stroke(255); // Linea bianca
+        strokeWeight(2);
+        
+        // Disegna la linea tratteggiata (implementazione manuale del tratteggio)
+        let dashLength = 10;
+        for (let x = X_MARGIN_LEFT; x < plotRightEdge; x += dashLength * 2) {
+            line(x, yMedian, min(x + dashLength, plotRightEdge), yMedian);
+        }
+        
+        // Etichetta della mediana
+        fill(255);
+        noStroke();
+        textAlign(LEFT, CENTER);
+        text(`Mediana: ${nf(medianValue, 0, 2)}`, X_MARGIN_LEFT + 5, yMedian + 10);
+    }
+
+    // 4. Etichetta Moda (Colonna 2)
+    if (selectedCol === 2 && modeValues.length > 0) {
+        fill(255);
+        noStroke();
+        textAlign(CENTER, CENTER);
+        // Posiziona l'etichetta al centro del grafico
+        const xCenter = X_MARGIN_LEFT + plotWidth / 2;
+        const yCenter = Y_MARGIN + (height - 2 * Y_MARGIN) / 2;
+        
+        text(`Moda: ${modeValues.join(', ')}`, xCenter, yCenter);
+        // Aggiunge una seconda riga se ci sono molti valori
+        if (modeValues.length > 3) {
+             text(`(Valori evidenziati con cerchi)`, xCenter, yCenter + 20);
+        } else {
+             text(`(Valori evidenziati con cerchi)`, xCenter, yCenter + 20);
+        }
+    }
+}
 
 function mouseMoved() {
-    // Limita il loop di disegno solo all'area del grafico
     const plotRightEdge = width - X_BUTTON_AREA_WIDTH;
     if (mouseX > X_MARGIN_LEFT && mouseX < plotRightEdge && mouseY > Y_MARGIN && mouseY < height - Y_MARGIN) {
         if (looping() === false) {
@@ -220,19 +305,53 @@ function mouseMoved() {
     }
 }
 
+function drawModeHighlights() {
+    // Disegna cerchi concentrici intorno ai pallini che sono la moda (solo Colonna 2)
+    if (selectedCol !== 2 || modeValues.length === 0 || verifiedData.length === 0) return;
+
+    const plotWidth = width - X_MARGIN_LEFT - X_BUTTON_AREA_WIDTH; 
+    const numRows = verifiedData.length;
+    const xStep = plotWidth / numRows; 
+
+    // Colore per la modalità (più chiaro e semitrasparente rispetto al colore della colonna 2)
+    let modeColor = color(COLUMN_COLORS_VIVID[2]);
+    modeColor.setAlpha(150); 
+    modeColor = lerpColor(modeColor, color(255), 0.5); // Rende il colore più chiaro
+    
+    stroke(modeColor);
+    strokeWeight(2);
+    noFill();
+    
+    verifiedData.forEach((row, rowIndex) => {
+        const value = row[2];
+        // Nota: nf(value, 0, 0) arrotonda al numero intero più vicino.
+        const roundedValue = nf(value, 0, 0); 
+        
+        // Controlla se il valore, arrotondato, è uno dei valori modali salvati come stringhe arrotondate
+        if (modeValues.includes(roundedValue)) {
+            const xPos = X_MARGIN_LEFT + xStep * 0.5 + rowIndex * xStep;
+            const yPos = map(value, DATA_MIN, DATA_MAX, height - Y_MARGIN, Y_MARGIN);
+            
+            // Cerchio concentrico più grande del pallino
+            ellipse(xPos, yPos, DOT_RADIUS * 2 * 1.8);
+        }
+    });
+}
+
 
 function drawHistogram() {
-    // Larghezza del grafico
     const plotWidth = width - X_MARGIN_LEFT - X_BUTTON_AREA_WIDTH; 
     const dotRadius = DOT_RADIUS;
     const numRows = verifiedData.length;
 
     const xStep = plotWidth / numRows; 
     
-    hoveredValue = null;
+    // Azzera hoveredValue all'inizio di ogni frame per un aggiornamento pulito
+    hoveredValue = null; 
+
+    drawModeHighlights(); // Disegna i cerchi della moda
 
     verifiedData.forEach((row, rowIndex) => {
-        // Posizione X: Margine Sinistro + metà del primo step + (indice * step)
         const xPos = X_MARGIN_LEFT + xStep * 0.5 + rowIndex * xStep;
 
         for (let j = 0; j < NUM_COLUMNS; j++) {
@@ -244,13 +363,13 @@ function drawHistogram() {
             const d = dist(mouseX, mouseY, xPos, yPos);
             if (d < dotRadius) {
                 if (selectedCol === -1 || selectedCol === j) {
-                    hoveredValue = `Riga ${rowIndex + 1}, Col. ${j}: ${nf(value, 0, 0)}`; 
+                    hoveredValue = `Col. ${j}: ${nf(value, 0, 0)}`; 
                     hoveredX = xPos;
                     hoveredY = yPos;
                 }
             }
 
-            // Determina il colore e l'opacità per il disegno (Senza contorno)
+            // Determina il colore e l'opacità per il disegno
             let col = dotColors[j];
             if (selectedCol === -1 || selectedCol === j) {
                 col.setAlpha(255); 
@@ -267,30 +386,49 @@ function drawHistogram() {
 
 function drawTooltip() {
     if (hoveredValue) {
-        const tipX = hoveredX + DOT_RADIUS + 5;
-        const tipY = hoveredY - 20;
-        
-        const padding = 5;
         push();
         textSize(14);
+        const padding = 5;
+        // Calcola la larghezza del testo
         const textW = textWidth(hoveredValue);
-        pop(); 
+        const tipWidth = textW + 2 * padding;
+        const tipHeight = 20 + 2 * padding; // Altezza fissa del riquadro (30px)
+        const offset = DOT_RADIUS + 3; // Spazio tra pallino e riquadro
 
-        // Sfondo del tooltip
-        fill(50, 50, 50, 240); 
+        // Calcola la posizione Y (centrata sul pallino)
+        const tipY_top = hoveredY - tipHeight / 2;
+        
+        let tipX;
+
+        // 1. Posizionamento preferito: a sinistra del pallino
+        let desiredTipX = hoveredX - tipWidth - offset;
+        
+        const plotLeftEdge = X_MARGIN_LEFT;
+
+        if (desiredTipX < plotLeftEdge) {
+            // 2. Se va fuori dal margine sinistro, sposta a destra
+            tipX = hoveredX + offset;
+        } else {
+            // 3. Altrimenti, usa il posizionamento a sinistra
+            tipX = desiredTipX;
+        }
+
+        // Sfondo del tooltip (riquadro)
+        fill(255); // Riquadro bianco
         noStroke();
         rectMode(CORNER);
-        rect(tipX, tipY - 15, textW + 2 * padding, 20 + 2 * padding, 5); 
+        rect(tipX, tipY_top, tipWidth, tipHeight, 5); 
 
         // Testo del tooltip
-        fill(255);
+        fill(0); // Testo nero
         textSize(14);
         textAlign(LEFT, TOP);
-        text(hoveredValue, tipX + padding, tipY - 15 + padding);
+        text(hoveredValue, tipX + padding, tipY_top + padding);
+        pop();
     }
 }
 
-// --- Funzioni per le Statistiche (rimangono invariate) ---
+// --- Funzioni per le Statistiche ---
 
 function calculateMean(arr) {
     if (arr.length === 0) return 0;
@@ -302,15 +440,16 @@ function calculateStdDev(arr) {
     if (arr.length <= 1) return 0;
     const mean = calculateMean(arr);
     const squaredDifferences = arr.map(val => pow(val - mean, 2));
-    const variance = calculateMean(squaredDifferences) * (arr.length / (arr.length - 1));
+    const variance = squaredDifferences.reduce((a, b) => a + b, 0) / (arr.length - 1); 
     return sqrt(variance);
 }
 
 function calculateMode(arr) {
-    if (arr.length === 0) return "N/A";
+    if (arr.length === 0) return [];
     const counts = {};
     arr.forEach(val => {
-        counts[val] = (counts[val] || 0) + 1;
+        const roundedVal = nf(val, 0, 0); 
+        counts[roundedVal] = (counts[roundedVal] || 0) + 1;
     });
 
     let maxCount = 0;
@@ -320,17 +459,17 @@ function calculateMode(arr) {
         const count = counts[key];
         if (count > maxCount) {
             maxCount = count;
-            mode = [parseFloat(key)];
-        } else if (count === maxCount) {
-            mode.push(parseFloat(key));
+            mode = [key];
+        } else if (count === maxCount && maxCount > 1) { 
+            mode.push(key);
         }
     }
     
-    if (maxCount === 1 && arr.length > 1) {
-        return "Nessuna moda significativa (o unimodale)";
+    if (maxCount <= 1) {
+        return [];
     }
     
-    return mode.map(v => nf(v, 0, 0)).join(', ');
+    return mode; // Ritorna un array di stringhe arrotondate
 }
 
 function calculateMedian(arr) {
@@ -346,6 +485,9 @@ function calculateMedian(arr) {
 }
 
 function updateStats(colIndex) {
+    modeValues = []; // Resetta i valori modali
+    medianValue = null; // Resetta il valore mediano
+
     if (colIndex === -1) {
         statsDisplay.html('Statistiche: Seleziona una Colonna');
         return;
@@ -367,12 +509,16 @@ function updateStats(colIndex) {
                 statsHtml += `Deviazione Standard: ${nf(stdDev1, 0, 2)}`;
                 break;
             case 2:
-                const mode2 = calculateMode(colValues);
-                statsHtml += `Moda: ${mode2}`;
+                modeValues = calculateMode(colValues); // Calcola e salva la moda
+                if (modeValues.length > 0) {
+                     statsHtml += `Moda: ${modeValues.join(', ')}`;
+                } else {
+                    statsHtml += `Moda: Nessuna moda significativa`;
+                }
                 break;
             case 3:
-                const median3 = calculateMedian(colValues);
-                statsHtml += `Mediana: ${nf(median3, 0, 2)}`;
+                medianValue = calculateMedian(colValues); // Calcola e salva la mediana
+                statsHtml += `Mediana: ${nf(medianValue, 0, 2)}`;
                 break;
             case 4:
                 const mean4 = calculateMean(colValues);
