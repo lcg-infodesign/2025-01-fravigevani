@@ -46,38 +46,62 @@ function setup() {
     // La tela deve occupare tutta la finestra
     createCanvas(windowWidth, windowHeight);
     
+    //viene assegnato un colore allae variabili dotColors 
+    // in base a quello che c'era scritto nella const COLUMN_COLORS_VIVID
     for (let i = 0; i < NUM_COLUMNS; i++) {
         dotColors[i] = color(COLUMN_COLORS_VIVID[i]);
     }
 
+    // verifica se esistono i dati della tabella e delle regole 
     if (table && rulesText) {
+        // interpreta il testo delle regole e lo trasforma in una scrittura comprensibile 
         const rules = parseRules(rulesText);
+        // verifica i dati nella tabella in base alle regole 
+        // i dati verificati vengono salvati in verifeidData
         verifiedData = verifyData(table, rules);
     }
     
+    // configura i bottoni 
     setupButtons();
 
+    // seleziona l'ID del div per visualizzare i dati in basso a destra 
     statsDisplay = select('#stats-display');
     
+    // sposta la modalità di disegno dell'ellisse al centro 
+    // invece che negli angoli
     ellipseMode(CENTER);
+
+    // centra verticalmente e orizzonatalmente il testo 
     textAlign(CENTER, CENTER);
     
+    // aggiorna le statistiche relative alla colonna selezionata 
     updateStats(selectedCol);
 }
 
 function windowResized() {
+    // permette di ingrandire e diminuire le grandezza del display 
+    // in modo che il grafico si adatti 
+    // senza fare scatti 
     resizeCanvas(windowWidth, windowHeight);
 }
 
+// prende l'array del file rules e lo traduce in modo comprensibile
 function parseRules(rulesArray) {
+    // La funzione inizia creando un oggetto vuoto rules che conterrà le regole analizzate
     const rules = {};
+    // se l'array rulesArray non è definito, 
+    // la funzione restituisce semplicemente l'oggetto rules vuoto, 
+    // senza fare altre elaborazioni.
     if (!rulesArray) return rules; 
+    // ogni linea viene ripulita con trim
     rulesArray.forEach(line => {
         line = line.trim();
         if (line.startsWith('column2 < 0')) {
             rules.column2 = { type: 'less_than', value: 0 };
         } else if (line.startsWith('column3 is integer')) {
             const match = line.match(/(\d+) <= x < (\d+)/);
+            // il codice cerca di estrarre il valore minimo e massimo del range 
+            // usando una regular expression (match())
             if (match) {
                 rules.column3 = { type: 'range', min: parseInt(match[1]), max: parseInt(match[2]) };
             }
@@ -86,15 +110,24 @@ function parseRules(rulesArray) {
     return rules;
 }
 
+// la funzione filtra le righe dei dati che soddisfano le regole specificate 
+// e restituisce un array di righe valide.
 function verifyData(data, rules) {
     let verifiedRows = [];
     const headers = data.columns;
+    // Se i dati non sono definiti o se non ci sono righe,
+    // la funzione restituisce direttamente un array vuoto
     if (!data || data.getRowCount() === 0) return verifiedRows;
 
+    // La funzione scorre ogni riga del dataset
     for (let i = 0; i < data.getRowCount(); i++) {
         const row = data.getRow(i);
         let isValid = true;
         
+        // La funzione estrae il valore della colonna 2 come stringa, 
+        // lo converte in un numero tramite parseFloat, 
+        // e lo confronta con la regola definita per column2
+        // se il valofre è > o = allora cambia la variabile isValid in false 
         const col2Value = parseFloat(row.getString('column2'));
         if (rules.column2 && col2Value >= rules.column2.value) {
             isValid = false;
@@ -102,24 +135,38 @@ function verifyData(data, rules) {
 
         const col3Value = parseFloat(row.getString('column3'));
         if (rules.column3) {
+            // isInteger verifica che il valore di column3 sia un numero intero
             const isInteger = col3Value % 1 === 0; 
+            // Verifica che il valore di column3 sia compreso nell'intervallo definito dalle regole (minimo e massimo).
             const isInRange = col3Value >= rules.column3.min && col3Value < rules.column3.max;
+            // Se la riga non è un intero o se non è nel range definito, 
+            // isValid viene impostato a false
             if (!isInteger || !isInRange) {
                 isValid = false;
             }
         }
 
+        // Se la riga è valida, 
+        // la funzione crea un array rowValues 
+        // che contiene i valori di tutte le colonne della riga.
         if (isValid) {
             const rowValues = [];
             for(let j = 0; j < NUM_COLUMNS; j++) {
+                // I valori di ciascuna colonna vengono estratti tramite row.getString(headers[j]), 
+                // dove headers[j] è il nome della colonna corrispondente, 
+                // e poi vengono convertiti in numeri con parseFloat.
                 rowValues.push(parseFloat(row.getString(headers[j]))); 
             }
+            // la riga verificata viene aggiunto all'array
             verifiedRows.push(rowValues);
         }
     }
     return verifiedRows;
 }
 
+// Ogni pulsante permette di selezionare una colonna 
+// e aggiornare la visualizzazione delle statistiche 
+// in base alla colonna selezionata.
 function setupButtons() {
     const container = select('#buttons-container');
     
