@@ -1,2 +1,0 @@
-column0 > 0
-column0 multiple of 5

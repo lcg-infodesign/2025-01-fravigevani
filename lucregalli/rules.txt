@@ -1,2 +1,0 @@
-column3 multiple of 3
-column4 multiple of 7

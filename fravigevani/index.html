@@ -1,18 +1,67 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizzazione Dataset P5.js</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.2/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.2/addons/p5.dom.min.js"></script>
+    
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden; 
+            display: flex;
+            background-color: #000000; /* Sfondo Nero */
+            color: white;
+        }
+        #buttons-container {
+            position: absolute;
+            top: 50%;
+            right: 0; /* Ancorato al bordo destro */
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column; 
+            gap: 10px;
+            padding: 15px;
+            width: 150px; /* Larghezza fissa per i bottoni */
+            background-color: rgba(255, 255, 255, 0.05); 
+            border-radius: 8px 0 0 8px; /* Solo sul lato sinistro */
+            z-index: 100;
+        }
+        button {
+            padding: 10px 15px;
+            font-size: 14px;
+            cursor: pointer;
+            border: none; 
+            border-radius: 5px;
+            color: #fff;
+            background-color: #333;
+            transition: background-color 0.3s;
+            width: 100%; /* Occupano tutta la larghezza del container */
+        }
+        button:hover {
+            background-color: #555;
+        }
+        #stats-display {
+            position: absolute;
+            bottom: 10px;
+            right: 10px; /* SPOSTATO a destra */
+            padding: 10px;
+            width: 150px; /* Stessa larghezza dei bottoni per allineamento */
+            background-color: rgba(255, 255, 255, 0.15); 
+            color: white;
+            font-family: Arial, sans-serif;
+            border-radius: 5px;
+            z-index: 100;
+            /* Aggiungi un piccolo margine dal basso per separarlo dal bordo */
+        }
+    </style>
+</head>
+<body>
+    <div id="buttons-container"></div>
+    <div id="stats-display">Statistiche: Seleziona una Colonna</div>
 
-    <title>Sketch</title>
-
-    <link rel="stylesheet" type="text/css" href="style.css">
-
-    <script src="libraries/p5.min.js"></script>
-    <script src="libraries/p5.sound.min.js"></script>
-  </head>
-
-  <body>
     <script src="sketch.js"></script>
-  </body>
+</body>
 </html>

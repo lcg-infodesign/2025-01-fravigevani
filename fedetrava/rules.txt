@@ -1,2 +1,0 @@
-column2 < 0
-column3 multiple of 3

@@ -1,2 +1,0 @@
-column3 is integer 30 <= x < 42
-column0 > 0

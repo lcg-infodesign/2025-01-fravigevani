@@ -1,2 +1,0 @@
-column0 multiple of 5
-column3 is integer 30 <= x < 42

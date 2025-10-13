@@ -1,2 +1,0 @@
-column1 integer 10 <= x < 50
-column4 multiple of 7

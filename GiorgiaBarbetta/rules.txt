@@ -1,2 +1,0 @@
-column4 multiple of 7
-column3 is integer 30 <= x < 42

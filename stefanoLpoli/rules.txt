@@ -1,2 +1,0 @@
-column4 multiple of 7
-column2 < 0
